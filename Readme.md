@@ -1,7 +1,5 @@
 # 🌿 EcoSangam – AI-Powered Sustainability Platform
 
-> 🏆 Top 6 out of 800+ teams at **AlgoVerse Hackathon** held at **Microsoft India (Noida)** and organized by **HackWithIndia-IGDTUW**.
-
 ## 🌍 Overview
 
 **EcoSangam** is an AI-driven sustainability platform that empowers individuals to track, manage, and offset their carbon footprint. It bridges awareness with action by helping users set eco-goals, contribute to verified offset programs, and stay consistently engaged through gamified features and AI support.
