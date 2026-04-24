@@ -94,16 +94,6 @@ export const About = () => {
               </a>
             </CardContent>
           </Card>
-
-          <Card className="bg-white/5 backdrop-blur-sm border-[#e5e1d8]/20">
-            <CardContent className="flex flex-col items-center py-6">
-              <img src="shalini.jpg" alt="Shalini Kashyap" className="w-32 h-32 rounded-full mb-4 object-cover border-2 border-[#e5e1d8]" />
-              <h3 className="text-xl font-semibold text-[#e5e1d8] uppercase">Shalini Kashyap</h3>
-              <a href="https://github.com/shaliniKashyap717" target="_blank" rel="noopener noreferrer" className="mt-2 px-4 py-1 rounded bg-[#e5e1d8]/10 border border-[#e5e1d8]/40 text-[#e5e1d8] hover:bg-[#e5e1d8]/20 transition">
-                GitHub Profile
-              </a>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
