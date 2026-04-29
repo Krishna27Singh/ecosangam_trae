@@ -214,6 +214,44 @@ export const Dashboard = () => {
 
   const [isLoadingTip, setIsLoadingTip] = useState(false);
   const [sustainabilityTip, setSustainabilityTip] = useState('');
+  const [tipFetchedAt, setTipFetchedAt] = useState(null);
+
+  const tipFallback =
+    "Choose one reusable item you use daily (like a water bottle or shopping bag) and keep it near your keys so it becomes a habit. Start with one week, then add another reusable swap once it feels easy.";
+
+  const formatTipWithEmojis = (tipText) => {
+    const clean = (tipText || '').trim();
+    if (!clean) return [];
+
+    const parts = clean
+      .replace(/\s+/g, ' ')
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const emojis = ['🌱', '✅', '💡', '🌍', '♻️', '🗓️', '✨', '🏡'];
+    return (parts.length ? parts : [clean]).map((part, idx) => ({
+      text: part,
+      emoji: emojis[idx % emojis.length],
+    }));
+  };
+
+  // Render inline markdown-like bold: **text**
+  // (Kept intentionally minimal; we only support **bold**.)
+  const renderInlineBold = (text, keyPrefix) => {
+    const tokens = String(text || '').split(/(\*\*[^*]+\*\*)/g).filter((t) => t !== '');
+    return tokens.map((token, idx) => {
+      const match = token.match(/^\*\*(.*)\*\*$/);
+      if (match) {
+        return (
+          <strong key={`${keyPrefix}-${idx}`} className="font-bold text-[#e5e1d8]">
+            {match[1]}
+          </strong>
+        );
+      }
+      return <span key={`${keyPrefix}-${idx}`}>{token}</span>;
+    });
+  };
 
   // EcoGoals state with localStorage persistence
   const [ecoGoals, setEcoGoals] = useState([]);
@@ -543,7 +581,8 @@ collectrainwater: [
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          prompt: 'Give me one detailed, everyday sustainability tip that is practical and easy to follow. The tip should not be concise—explain the reasoning behind it, how it positively impacts the environment, and offer actionable steps to implement it in daily life. Keep the response clear, educational, and under 100 words. Avoid technical jargon. This is meant for a general audience trying to adopt eco-friendly habits.'
+          prompt:
+            'Give me one practical sustainability tip in exactly 3 clear sentences. Sentence 1: explain why it helps the environment. Sentence 2: describe one specific action the user can do today. Sentence 3: explain how to make it a habit. Keep total under 90 words. Avoid technical jargon. No bullet points, no headings.'
         }),
       });
 
@@ -552,11 +591,15 @@ collectrainwater: [
       }
 
       const data = await response.json();
-      setSustainabilityTip(data.tip || data.response || 'No tip received');
+      const tip = data.tip || data.response || tipFallback;
+      setSustainabilityTip(tip);
+      setTipFetchedAt(new Date());
       toast.success('New sustainability tip generated!');
     } catch (error) {
       console.error('Error fetching sustainability tip:', error);
-      toast.error('Failed to get sustainability tip. Please try again.');
+      setSustainabilityTip(tipFallback);
+      setTipFetchedAt(new Date());
+      toast.error('Could not reach AI service. Showing a helpful fallback tip.');
     } finally {
       setIsLoadingTip(false);
     }
@@ -669,23 +712,70 @@ collectrainwater: [
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Button 
+            <div className="mb-4 p-3 bg-white/10 border border-white/20 rounded-lg">
+              <div className="flex items-center gap-2 text-[#e5e1d8]">
+                <span className="text-lg">🤖</span>
+                <p className="text-sm">
+                  {user?.name
+                    ? `Hi ${user.name.split(' ')[0]}! Your coach has a quick eco win for you.`
+                    : "Your coach has a quick eco win for you."}
+                </p>
+              </div>
+            </div>
+
+            <Button
               onClick={fetchSustainabilityTip}
               disabled={isLoadingTip}
-              className="bg-[#e5e1d8] text-black hover:bg-[#e5e1d8]/90 uppercase font-semibold tracking-wide mb-4"
+              className="bg-[#e5e1d8] text-black hover:bg-[#e5e1d8]/90 uppercase font-semibold tracking-wide mb-4 w-full"
             >
               {isLoadingTip ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  GETTING TIP...
+                  Thinking... generating tip
                 </>
               ) : (
-                'GET AI BASED SUSTAINABILITY TIP'
+                'Get an AI Sustainability Tip'
               )}
             </Button>
-            {sustainabilityTip && (
+
+            {sustainabilityTip ? (
+              <div
+                className="bg-white/10 rounded-lg p-4 border border-white/20 transition-all duration-300"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🌿</span>
+                    <p className="text-sm font-semibold text-[#e5e1d8] uppercase tracking-wide">
+                      Coach says
+                    </p>
+                  </div>
+                  {tipFetchedAt && (
+                    <p className="text-xs text-[#e5e1d8] opacity-70">
+                      {tipFetchedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
+
+                <ul className="space-y-2">
+                  {formatTipWithEmojis(sustainabilityTip).map((item, idx) => (
+                    <li key={idx} className="flex gap-2 text-[#e5e1d8] leading-relaxed">
+                      <span className="min-w-5">{item.emoji}</span>
+                      <span>{renderInlineBold(item.text, `tip-${idx}`)}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-4 p-3 bg-black/30 border border-white/10 rounded-md">
+                  <p className="text-xs text-[#e5e1d8] opacity-80">
+                    ✅ Try it today: pick one action and do it once, then repeat tomorrow.
+                  </p>
+                </div>
+              </div>
+            ) : (
               <div className="bg-white/10 rounded-lg p-4 border border-white/20">
-                <p className="text-[#e5e1d8] leading-relaxed">{sustainabilityTip}</p>
+                <p className="text-[#e5e1d8] leading-relaxed opacity-85">
+                  Tap the button to get a friendly, practical sustainability tip. We will generate one for you with steps you can do right away. 🌎✨
+                </p>
               </div>
             )}
           </CardContent>
