@@ -14,6 +14,7 @@ import LoginSignup from "@/components/pages/LoginSignup";
 import NotFound from "@/pages/NotFound";
 import Offset from "./components/pages/offset";
 import Community from "./components/pages/Community";
+import EcoScanner from "./components/pages/EcoScanner";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -39,6 +40,7 @@ const App = () => {
               <Route path="home" element={<Home />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="calculator" element={<CarbonCalculator />} />
+              <Route path="eco-scanner" element={<EcoScanner />} />
               <Route path="offset" element={<Offset />} />
               <Route path="community" element={<Community />} />
               <Route path="about" element={<About />} />

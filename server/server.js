@@ -8,6 +8,7 @@ const bodyParser = require('body-parser');
 const ecoGoalRoutes = require('./routes/ecoGoalRoutes');
 const tipsRoute = require("./routes/tipsRoute");
 const geminiRoutes = require('./routes/geminiRoutes');
+const ecoScannerRoutes = require('./routes/ecoScannerRoutes');
 
 dotenv.config();
 const app = express();
@@ -35,6 +36,7 @@ app.use('/auth', authRoutes);
 app.use('/completedecogoal', ecoGoalRoutes);
 app.use('/api/gemini', geminiRoutes);
 app.use('/api/tips', tipsRoute);
+app.use('/api/eco-scanner', ecoScannerRoutes);
 
 app.get('/test', (req, res) => {
   res.send("test is fine");

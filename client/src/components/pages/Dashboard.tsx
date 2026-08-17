@@ -5,7 +5,8 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { TrendingUp, TrendingDown, Car, Home, Plane, Utensils, Globe, Target, Zap, Loader2, Plus, Calendar, CheckCircle, Leaf, Bike, Recycle, TreePine, Droplets, Sun, Battery, ShoppingBag, Trash2, Crown, Star, Sparkles, CloudRain, Lightbulb, PackageCheck, ThermometerSun, Footprints, Droplet } from 'lucide-react';
+import { TrendingUp, TrendingDown, Car, Home, Plane, Utensils, Globe, Target, Zap, Loader2, Plus, Calendar, CheckCircle, Leaf, Bike, Recycle, TreePine, Droplets, Sun, Battery, ShoppingBag, Trash2, Crown, Star, Sparkles, CloudRain, Lightbulb, PackageCheck, ThermometerSun, Footprints, Droplet, Brain, Activity } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { toast } from "sonner";
 import { useAuth } from '../../context/AuthContext';
 
@@ -215,6 +216,9 @@ export const Dashboard = () => {
   const [isLoadingTip, setIsLoadingTip] = useState(false);
   const [sustainabilityTip, setSustainabilityTip] = useState('');
   const [tipFetchedAt, setTipFetchedAt] = useState(null);
+  const [isLoadingMlForecast, setIsLoadingMlForecast] = useState(false);
+  const [mlForecast, setMlForecast] = useState(null);
+  const [mlForecastError, setMlForecastError] = useState('');
 
   const tipFallback =
     "Choose one reusable item you use daily (like a water bottle or shopping bag) and keep it near your keys so it becomes a habit. Start with one week, then add another reusable swap once it feels easy.";
@@ -398,6 +402,79 @@ export const Dashboard = () => {
     { month: 'May', emissions: 1.9 },
     { month: 'Jun', emissions: 2.0 },
   ];
+
+  const mlServiceUri = import.meta.env.VITE_ML_SERVICE_URI || 'http://localhost:8001';
+
+  const buildLocalForecastFallback = () => {
+    const today = new Date();
+    const dailyHistory = Array.from({ length: 30 }).map((_, idx) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (29 - idx));
+      const base = 3.2 + Math.sin(idx / 5) * 0.35 + (idx % 6 === 0 ? 0.2 : 0);
+      return {
+        label: date.toISOString().split('T')[0].slice(5),
+        value: Number(base.toFixed(2)),
+        type: 'historical'
+      };
+    });
+    const nextDay = Number((dailyHistory[dailyHistory.length - 1].value + 0.08).toFixed(2));
+    const nextWeek = Number((nextDay * 7).toFixed(2));
+    const nextMonth = Number((nextDay * 30).toFixed(2));
+    return {
+      predictions: { next_day: nextDay, next_week: nextWeek, next_month: nextMonth },
+      explanation:
+        'Prediction is based on recent daily trend and recurring weekly behavior patterns. Recent values show stable usage with slight upward drift.',
+      reduction_tips: [
+        'Replace two short car trips this week with cycling or walking.',
+        'Shift one high-emission meal to a plant-forward meal every alternate day.',
+        'Use energy-saving mode and turn off standby devices each night.'
+      ],
+      daily_series: dailyHistory,
+      weekly_series: [
+        { label: 'W-3', value: 20.4, type: 'historical' },
+        { label: 'W-2', value: 21.1, type: 'historical' },
+        { label: 'W-1', value: 21.8, type: 'historical' },
+        { label: 'Next', value: nextWeek, type: 'forecast' }
+      ],
+      monthly_series: [
+        { label: 'M-3', value: 86.5, type: 'historical' },
+        { label: 'M-2', value: 88.7, type: 'historical' },
+        { label: 'M-1', value: 91.6, type: 'historical' },
+        { label: 'Next', value: nextMonth, type: 'forecast' }
+      ],
+      warning: 'ML service unavailable, showing local fallback forecast.'
+    };
+  };
+
+  const fetchMlForecast = async () => {
+    setIsLoadingMlForecast(true);
+    setMlForecastError('');
+    try {
+      const response = await fetch(`${mlServiceUri}/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user?.email || user?.name || 'anonymous', history_days: 210 })
+      });
+
+      if (!response.ok) {
+        throw new Error(`ML service failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      setMlForecast(data);
+    } catch (error) {
+      console.error('ML forecast error:', error);
+      setMlForecast(buildLocalForecastFallback());
+      setMlForecastError('Live ML service unavailable. Showing locally generated fallback forecast.');
+    } finally {
+      setIsLoadingMlForecast(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMlForecast();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const categories = [
     { name: 'Transportation', icon: Car, emissions: 1.2, percentage: 45, color: 'text-blue-400' },
@@ -853,6 +930,172 @@ collectrainwater: [
             </CardContent>
           </Card>
         </div>
+
+        {/* ARIMA Forecast Section */}
+        <Card className="bg-white/5 backdrop-blur-sm border border-white/20 mb-8">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-[#e5e1d8] uppercase font-semibold tracking-wide flex items-center">
+                  <Brain className="w-5 h-5 mr-2 text-purple-300" />
+                  AI-ML Emission Forecast (ARIMA)
+                </CardTitle>
+                <CardDescription className="text-[#e5e1d8] opacity-80 uppercase text-xs">
+                  Next day, week, and month prediction with reduction guidance
+                </CardDescription>
+              </div>
+              <Button
+                onClick={fetchMlForecast}
+                disabled={isLoadingMlForecast}
+                className="bg-[#e5e1d8] text-black hover:bg-[#e5e1d8]/90 uppercase text-xs font-semibold"
+              >
+                {isLoadingMlForecast ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Predicting...
+                  </>
+                ) : (
+                  <>
+                    <Activity className="w-4 h-4 mr-2" />
+                    Refresh Forecast
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoadingMlForecast && !mlForecast ? (
+              <div className="text-center py-10 text-[#e5e1d8] opacity-80 uppercase text-sm">
+                Building ARIMA prediction model...
+              </div>
+            ) : (
+              <>
+                {mlForecastError && (
+                  <div className="mb-4 rounded-md border border-yellow-400/40 bg-yellow-500/10 p-3 text-yellow-200 text-sm">
+                    {mlForecastError}
+                  </div>
+                )}
+
+                {mlForecast && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <Card className="bg-white/5 border border-white/20">
+                        <CardHeader>
+                          <CardTitle className="text-[#e5e1d8] text-sm uppercase">Next Day</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-blue-300">
+                            {(mlForecast.predictions?.next_day ?? 0).toFixed(2)} kg
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-white/5 border border-white/20">
+                        <CardHeader>
+                          <CardTitle className="text-[#e5e1d8] text-sm uppercase">Next Week</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-green-300">
+                            {(mlForecast.predictions?.next_week ?? 0).toFixed(2)} kg
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-white/5 border border-white/20">
+                        <CardHeader>
+                          <CardTitle className="text-[#e5e1d8] text-sm uppercase">Next Month</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-purple-300">
+                            {(mlForecast.predictions?.next_month ?? 0).toFixed(2)} kg
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                      <Card className="bg-white/5 border border-white/20">
+                        <CardHeader>
+                          <CardTitle className="text-[#e5e1d8] text-xs uppercase">Daily Trend + Forecast</CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-56">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={mlForecast.daily_series || []}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.15)" />
+                              <XAxis dataKey="label" stroke="#e5e1d8" tick={{ fill: '#e5e1d8', fontSize: 11 }} />
+                              <YAxis stroke="#e5e1d8" tick={{ fill: '#e5e1d8', fontSize: 11 }} />
+                              <RechartsTooltip />
+                              <Line type="monotone" dataKey="value" stroke="#60a5fa" strokeWidth={2} dot={false} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-white/5 border border-white/20">
+                        <CardHeader>
+                          <CardTitle className="text-[#e5e1d8] text-xs uppercase">Weekly Trend + Forecast</CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-56">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={mlForecast.weekly_series || []}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.15)" />
+                              <XAxis dataKey="label" stroke="#e5e1d8" tick={{ fill: '#e5e1d8', fontSize: 11 }} />
+                              <YAxis stroke="#e5e1d8" tick={{ fill: '#e5e1d8', fontSize: 11 }} />
+                              <RechartsTooltip />
+                              <Line type="monotone" dataKey="value" stroke="#34d399" strokeWidth={2} dot={false} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-white/5 border border-white/20">
+                        <CardHeader>
+                          <CardTitle className="text-[#e5e1d8] text-xs uppercase">Monthly Trend + Forecast</CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-56">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={mlForecast.monthly_series || []}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.15)" />
+                              <XAxis dataKey="label" stroke="#e5e1d8" tick={{ fill: '#e5e1d8', fontSize: 11 }} />
+                              <YAxis stroke="#e5e1d8" tick={{ fill: '#e5e1d8', fontSize: 11 }} />
+                              <RechartsTooltip />
+                              <Line type="monotone" dataKey="value" stroke="#c084fc" strokeWidth={2} dot={false} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <Card className="bg-white/5 border border-white/20">
+                        <CardHeader>
+                          <CardTitle className="text-[#e5e1d8] text-sm uppercase">Why Model Predicted This</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-[#e5e1d8] leading-relaxed text-sm">
+                            {mlForecast.explanation || 'Model used historical emission trend, seasonality, and recent movement to estimate future values.'}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-white/5 border border-white/20">
+                        <CardHeader>
+                          <CardTitle className="text-[#e5e1d8] text-sm uppercase">How To Reduce Forecasted Emission</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {(mlForecast.reduction_tips || []).map((tip, idx) => (
+                            <div key={`${tip}-${idx}`} className="rounded-md border border-white/15 bg-white/5 p-3 text-[#e5e1d8] text-sm">
+                              <span className="text-green-300 mr-2">•</span>
+                              {tip}
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Enhanced Emissions by Category */}

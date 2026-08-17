@@ -4,6 +4,7 @@ import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { MapNavigation } from "@/components/MapNavigation";
 import { Navbar } from "@/components/Navbar";
 import { Tabs } from "@/components/tabs"; // Ensure this is correct
+import FloatingScannerButton from "@/components/FloatingScannerButton";
 
 const Layout = () => {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ const Layout = () => {
       />
 
       <Tabs />
+      <FloatingScannerButton />
 
       <main className="relative z-10 pt-4">
         <Outlet />
